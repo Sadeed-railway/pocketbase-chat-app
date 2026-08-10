@@ -1,12 +1,12 @@
-// src/routes/+page.js
-import { redirect } from '@sveltejs/kit';
+// // src/routes/+page.js
+// import { redirect } from '@sveltejs/kit';
 
-let isAuthenticated = true;
+// let isAuthenticated = true;
 
-export function load() {
-  if (isAuthenticated) {
-    redirect(303, '/chats'); // SvelteKit 2 uses redirect(...) directly (no 'throw')
-  }
+// export function load() {
+//   if (isAuthenticated) {
+//     redirect(303, '/chats'); // SvelteKit 2 uses redirect(...) directly (no 'throw')
+//   }
 
-  redirect(303, '/');
-}
+//   redirect(303, '/');
+// }
