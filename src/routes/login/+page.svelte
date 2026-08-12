@@ -1,22 +1,31 @@
 <script>
-  let isSignUp = $state(false);
+    import { pb, session } from '$pb/pocketbase.svelte.js';
+     import { goto } from '$app/navigation';
 
-  // Form Fields
-  let email = $state('');
-  let name = $state('');
-  let password = $state('');
-  let passwordConfirm = $state('');
+    $effect(() => {
+        if (session.isValid) {
+            goto('/chats', { replaceState: true });
+        }
+    });
 
-  // UI State
-  let errorMessage = $state('');
-  let isLoading = $state(false);
+    let isSignUp = $state(false);
 
-  function toggleMode() {
-    isSignUp = !isSignUp;
-    errorMessage = '';
-    password = '';
-    passwordConfirm = '';
-  }
+    // Form Fields
+    let email = $state('');
+    let username = $state('');
+    let password = $state('');
+    let passwordConfirm = $state('');
+
+    // UI State
+    let errorMessage = $state('');
+    let isLoading = $state(false);
+
+    function toggleMode() {
+        isSignUp = !isSignUp;
+        errorMessage = '';
+        password = '';
+        passwordConfirm = '';
+    }
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -24,33 +33,34 @@
         isLoading = true;
 
         try {
-        if (isSignUp) {
-            if (password !== passwordConfirm) {
-            throw new Error('Passwords do not match');
+            if (isSignUp) {
+                if (password !== passwordConfirm) {
+                throw new Error('Passwords do not match');
+                }
+                await pb.collection('users').create({
+                    username: username.trim() || undefined,
+                    email: email.trim(),
+                    password,
+                    passwordConfirm
+                });
+                await pb.collection('users').authWithPassword(email, password);
+
             }
-        }
 
-        //     await pb.collection('users').create({
-        //       name: name.trim() || undefined,
-        //       email: email.trim(),
-        //       password,
-        //       passwordConfirm
-        //     });
-
-        //     await pb.collection('users').authWithPassword(email, password);
-        //   } else {
-        //     await pb.collection('users').authWithPassword(email, password);
-        //   }
+            else {
+                await pb.collection('users').authWithPassword(email, password);
+            }
         } catch (err) {
-        //   console.error('Auth error:', err);
-        //   if (err.data?.data?.name?.message) {
-        //     errorMessage = `Name: ${err.data.data.name.message}`; 
-        //   } else if (err.data?.data?.email?.message) {
-        //     errorMessage = `Email: ${err.data.data.email.message}`;
-        //   } else {
-        //     errorMessage = err.message || 'Authentication failed. Please try again.';
+          console.error('Auth error:', err);
+          if (err.data?.data?.name?.message) {
+            errorMessage = `Name: ${err.data.data.name.message}`; 
+          } else if (err.data?.data?.email?.message) {
+            errorMessage = `Email: ${err.data.data.email.message}`;
+          } else {
+            errorMessage = err.message || 'Authentication failed. Please try again.';
+          }
         } finally {
-        isLoading = false;
+            isLoading = false;
         }
     }
 </script>
@@ -78,7 +88,7 @@
         <input 
           type="text" 
           id="name" 
-          bind:value={name} 
+          bind:value={username} 
           placeholder="gamertag123" 
           required 
           class="input preset-tonal rounded-lg p-2.5 text-sm transition-colors"

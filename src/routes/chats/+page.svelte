@@ -1,7 +1,18 @@
 <script>
-    import SideBar from '$lib/components/SideBar.svelte';
+  import SideBar from '$lib/components/SideBar.svelte';
+  import { session } from '$pb/pocketbase.svelte.js';
+  import { goto } from '$app/navigation';
 
-    const items = $state([
+  let friendsList = $state([]);
+
+
+  $effect(() => {
+      if (!session.isValid) {
+          goto('/login', { replaceState: true });
+      }
+  });
+
+  const items = $state([
     { id: 1, title: 'General Announcements', type: 'Channels', href: '/channels/general', icon: '📢' },
     { id: 2, title: 'John Doe', type: 'DMs', href: '/chats/john-doe', icon: '💬' },
     { id: 3, title: 'Dev Team', type: 'Channels', href: '/channels/dev-team', icon: '📢' },

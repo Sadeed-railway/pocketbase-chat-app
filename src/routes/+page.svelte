@@ -2,16 +2,16 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { fade, fly } from 'svelte/transition';
+  import { session } from '$pb/pocketbase.svelte.js';
 
   let visible = $state(true);
-  let isAuthenticated = $state(false);
   let targetRoute = $state('/login');
 
   
   onMount(async () => {
     const delayPromise = new Promise((res) => setTimeout(res, 1200));
 
-    if (isAuthenticated) {
+    if (session.isValid) {
       targetRoute = '/chats';
     } else {
       targetRoute = '/login';

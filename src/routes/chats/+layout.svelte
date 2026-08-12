@@ -7,7 +7,7 @@
 	let { children } = $props();
 </script>
 
-<div class="w-full">
+<div class="h-full">
 	<NavBar />
 	{@render children()}
 </div>
