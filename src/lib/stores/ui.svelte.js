@@ -1,7 +1,7 @@
 import { getContext, setContext } from 'svelte';
 
 class SidebarState {
-  #isOpen = $state(false);
+  #isOpen = $state(true);
 
   get isOpen() {
     return this.#isOpen;

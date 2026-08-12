@@ -5,7 +5,7 @@
   import ChatCard from './ChatCard.svelte';
 
   const sidebar = getSidebarState();
-  const { items = [] } = $props();
+  const { items = [], activeFriendId='8psyq0r39n3povv' } = $props();
   
   let value = $state("All");
   
@@ -44,7 +44,7 @@
 </script>
 
 <!-- Disable text selection globally while actively dragging for a smooth experience -->
-<div class="flex h-full w-screen overflow-hidden bg-surface-50-900-token {isResizing ? 'select-none' : ''}">
+<div class="flex h-[calc(100vh-73px)] w-screen overflow-hidden bg-surface-50-900-token {isResizing ? 'select-none' : ''}">
 
   {#if sidebar.isOpen}
   <aside
@@ -73,8 +73,9 @@
 
     <!-- Navigation List -->
     <nav class="flex-1 space-y-1 overflow-y-auto p-4">
-     {#each filteredItems as item (item.id)}
-        <ChatCard {item} />
+      {#each filteredItems as item (item.id)}
+        <ChatCard {item} class={activeFriendId == item.id ? 'bg-primary-500/20 text-primary-500' : 'hover:bg-surface-200/50'} />
+        {console.log(item.id, activeFriendId, activeFriendId == item.id)}
       {:else}
         <p class="p-2 text-sm text-surface-400">No items found.</p>
       {/each}

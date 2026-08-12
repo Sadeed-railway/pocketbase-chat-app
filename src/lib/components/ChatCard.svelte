@@ -1,18 +1,30 @@
 <script>
-    let { item } = $props();
+    import { Avatar } from '@skeletonlabs/skeleton-svelte';
+    import { pb } from '$pb/pocketbase.svelte.js';
+    let { item, class: className = '' } = $props();
+
+    // Safely derive the URL reactively and fix method casing (.getUrl)
+    let url = $derived(
+        item?.id && item?.avatar 
+            ? pb.files.getUrl(item, item.avatar) 
+            : ''
+    );
 </script>
 
 <div class="
-    /* Default: Rectangular, full-width row */
-    flex w-full items-center justify-start gap-3 rounded-xl p-4 cursor-pointer
+    flex flex-row w-full items-center justify-start gap-3 rounded-xl p-4 cursor-pointer
     bg-[#28243e] hover:bg-[#28243e94]
 
-    /* Narrow Mode (< 220px): Force a specific 64px x 64px Square */
-    aspect-square w-auto h-15 flex-col justify-center mx-auto
+    aspect-square h-18 justify-center mx-auto
 
-    /* Wide Mode (>= 220px): Expand back to full width rectangle */
     @min-[180px]:w-full @min-[180px]:h-auto @min-[180px]:aspect-auto @min-[180px]:flex-row
+    {className}
 ">
-    <span class="text-xl">{item.icon}</span>
-    <span class="text-xs truncate">{item.title}</span>
+    <Avatar class="size-10 shrink-0">
+    {#if url}
+        <Avatar.Image src={url} alt={item.username?.charAt(0).toUpperCase()} class="size-full object-cover rounded-full" />
+    {/if}
+        <Avatar.Fallback>{item.username?.charAt(0).toUpperCase()}</Avatar.Fallback>
+    </Avatar>
+    <span class="text-lg truncate @min-[120px]:block hidden">{item.username}</span>
 </div>
