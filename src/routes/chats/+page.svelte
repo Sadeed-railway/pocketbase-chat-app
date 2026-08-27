@@ -5,7 +5,6 @@
 	import ActiveChat from '$lib/components/ActiveChat.svelte';
 
   let friendsList = $state([]);
-  let activeChatFriend = $state(null); 
 
   $effect(() => {
       if (session.isValid) {
@@ -27,5 +26,9 @@
     }
 </script>
 
-<SideBar items={friendsList} activeFriendId={activeChatFriend?.id} />
-<ActiveChat {activeChatFriend} conversationId={activeChatFriend?.conversationId} />
+<div class="flex h-[calc(100vh-73px)] min-w-0 overflow-hidden">
+  <SideBar items={friendsList} />
+  <main class="min-w-0 flex-1">
+    <ActiveChat />
+  </main>
+</div>

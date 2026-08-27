@@ -1,8 +1,11 @@
 <script>
   import { tick } from 'svelte';
   import { pb, session } from '$pb/pocketbase.svelte.js';
+  import { getActiveChatState } from '$lib/stores/chat.svelte.js';
 
-  let { friend, conversationId } = $props();
+  const activeChat = getActiveChatState();
+  let friend = $derived(activeChat.friend);
+  let friendId = $derived(friend?.id);
 
   let messages = $state([]);
   let inputText = $state('');
@@ -41,16 +44,20 @@
   }
 
   $effect(() => {
-    const activeConvId = conversationId;
+    const activeFriendId = friendId;
+    const currentUserId = session.user?.id;
     let unsubscribeFn;
 
     async function loadChat() {
-      if (!activeConvId) return;
+      messages = [];
+      if (!activeFriendId || !currentUserId) return;
+
+      const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
 
       messages = await pb.collection('messages').getFullList({
-        filter: `conversation = "${activeConvId}"`,
+        filter: chatFilter,
         sort: 'created',
-        expand: 'sender'
+        expand: 'sender,receiver'
       });
       await scrollToBottom();
 
@@ -58,12 +65,14 @@
         '*',
         async (e) => {
           if (e.action === 'create') {
-            const newMsg = await pb.collection('messages').getOne(e.record.id, { expand: 'sender' });
-            messages.push(newMsg);
-            await scrollToBottom();
+            const newMsg = await pb.collection('messages').getOne(e.record.id, { expand: 'sender,receiver' });
+            if (newMsg.sender === activeFriendId || newMsg.receiver === activeFriendId) {
+              messages.push(newMsg);
+              await scrollToBottom();
+            }
           }
         },
-        { filter: `conversation = "${activeConvId}"` }
+        { filter: chatFilter }
       );
     }
 
@@ -77,16 +86,16 @@
   async function handleSend(e) {
     e.preventDefault();
     const textToSend = inputText.trim();
-    if (!textToSend || !conversationId || isSending) return;
+    if (!textToSend || !friendId || !session.user?.id || isSending) return;
 
     isSending = true;
     inputText = '';
 
     try {
       await pb.collection('messages').create({
-        text: textToSend,
-        sender: currentUser.id,
-        conversation: conversationId
+        content: textToSend,
+        sender: session.user.id,
+        receiver: friendId
       });
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -97,6 +106,11 @@
 </script>
 
 <div class="flex h-full flex-col overflow-hidden bg-surface-50-900-token">
+  {#if !friend}
+    <div class="flex h-full items-center justify-center text-sm text-surface-400">
+      Select a friend to start chatting.
+    </div>
+  {:else}
   <!-- Header Bar -->
   <header class="flex h-16 shrink-0 items-center justify-between border-b border-surface-500/20 bg-surface-100-800-token px-6 shadow-sm z-10">
     <div class="flex items-center gap-3">
@@ -134,12 +148,12 @@
 
         <div class="flex max-w-[75%] items-end gap-2 {isMe ? 'flex-row-reverse' : 'flex-row'}">
           <div
-            class="rounded-2xl px-4 py-2.5 shadow-sm 
+            class="rounded-2xl px-4 py-2.5 shadow-sm
             {isMe ? 'variant-filled-primary text-white' : 'variant-soft-surface'}
             {msg.isFirstInGroup && isMe ? 'rounded-tr-md' : ''}
             {msg.isFirstInGroup && !isMe ? 'rounded-tl-md' : ''}"
           >
-            <p class="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.text}</p>
+            <p class="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">{msg.content}</p>
           </div>
         </div>
       </div>
@@ -164,4 +178,5 @@
       </button>
     </form>
   </footer>
+  {/if}
 </div>

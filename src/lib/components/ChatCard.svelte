@@ -1,7 +1,7 @@
 <script>
     import { Avatar } from '@skeletonlabs/skeleton-svelte';
     import { pb } from '$pb/pocketbase.svelte.js';
-    let { item, class: className = '' } = $props();
+    let { item, class: className = '', isActive = false, onSelect = () => {} } = $props();
 
     // Safely derive the URL reactively and fix method casing (.getUrl)
     let url = $derived(
@@ -11,9 +11,13 @@
     );
 </script>
 
-<div class="
+<button
+    type="button"
+    onclick={onSelect}
+    class="
     flex flex-row w-full items-center justify-start gap-3 rounded-xl p-4 cursor-pointer
     bg-[#28243e] hover:bg-[#28243e94]
+    {isActive ? 'bg-primary-500/20 text-primary-500' : ''}
 
     aspect-square h-18 justify-center mx-auto
 
@@ -27,4 +31,4 @@
         <Avatar.Fallback>{item.username?.charAt(0).toUpperCase()}</Avatar.Fallback>
     </Avatar>
     <span class="text-lg truncate @min-[120px]:block hidden">{item.username}</span>
-</div>
+</button>

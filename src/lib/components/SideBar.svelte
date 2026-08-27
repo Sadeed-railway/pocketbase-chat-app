@@ -2,10 +2,12 @@
   import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
   import { page } from '$app/state';
   import { getSidebarState } from '$lib/stores/ui.svelte.js';
+  import { getActiveChatState } from '$lib/stores/chat.svelte.js';
   import ChatCard from './ChatCard.svelte';
 
   const sidebar = getSidebarState();
-  const { items = [], activeFriendId } = $props();
+  const activeChat = getActiveChatState();
+  const { items = [] } = $props();
   
   let value = $state("All");
   
@@ -44,12 +46,12 @@
 </script>
 
 <!-- Disable text selection globally while actively dragging for a smooth experience -->
-<div class="flex h-[calc(100vh-73px)] w-screen overflow-hidden bg-surface-50-900-token {isResizing ? 'select-none' : ''}">
+<div class="h-full shrink-0 overflow-hidden bg-surface-50-900-token {isResizing ? 'select-none' : ''}">
 
   {#if sidebar.isOpen}
   <aside
     style="width: {width}px;"
-    class="@container relative inset-y-0 left-0 z-50 flex flex-col border-r border-surface-500/20 bg-surface-100-800-token transition-transform duration-200 ease-in-out md:static md:translate-x-0 {sidebar.isOpen ? 'translate-x-0' : '-translate-x-full'}"
+    class="@container relative inset-y-0 left-0 z-50 flex h-full flex-col border-r border-surface-500/20 bg-surface-100-800-token transition-transform duration-200 ease-in-out md:static md:translate-x-0 {sidebar.isOpen ? 'translate-x-0' : '-translate-x-full'}"
   >
     <!-- <div class="flex flex-col items-center gap-4 py-4 ">
         <SegmentedControl {value} onValueChange={(details) => (value = details.value ?? "All")}>
@@ -74,7 +76,11 @@
     <!-- Navigation List -->
     <nav class="flex-1 space-y-1 overflow-y-auto p-4">
       {#each filteredItems as item (item.id)}
-        <ChatCard {item} class={activeFriendId == item.id ? 'bg-primary-500/20 text-primary-500' : 'hover:bg-surface-200/50'} />
+        <ChatCard
+          {item}
+          isActive={activeChat.friend?.id === item.id}
+          onSelect={() => activeChat.select(item)}
+        />
       {:else}
         <p class="p-2 text-sm text-surface-400">No items found.</p>
       {/each}
