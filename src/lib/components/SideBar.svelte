@@ -5,7 +5,7 @@
   import ChatCard from './ChatCard.svelte';
 
   const sidebar = getSidebarState();
-  const { items = [], activeFriendId='8psyq0r39n3povv' } = $props();
+  const { items = [], activeFriendId } = $props();
   
   let value = $state("All");
   
@@ -84,7 +84,6 @@
     <!-- 3. Drag Handle Bar -->
     <div
       role="separator"
-      tabindex="0"
       aria-label="Resize sidebar"
       aria-valuenow={width}
       aria-valuemin={minWidth}

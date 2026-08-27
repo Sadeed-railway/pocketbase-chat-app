@@ -26,5 +26,4 @@
     }
 </script>
 
-<SideBar items={friendsList}  />
-<!-- activeFriendId={activeChatFriend?.id} -->
+<SideBar items={friendsList} activeFriendId={activeChatFriend?.id} />

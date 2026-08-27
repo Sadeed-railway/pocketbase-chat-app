@@ -30,7 +30,7 @@
         </AppBar.Headline>
         <AppBar.Trail>
             <Menu>
-                <Menu.Trigger>
+                <Menu.Trigger class="rounded-lg p-1 hover:preset-tonal cursor-pointer">
                     <Avatar class="size-10">
                         {#if mounted && url}
                             <Avatar.Image src={url} alt="base" class="size-10" />

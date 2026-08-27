@@ -157,7 +157,7 @@
       <button 
         type="button" 
         onclick={toggleMode} 
-        class="font-semibold text-primary-500 underline hover:text-primary-600 focus:outline-none"
+        class="font-semibold text-primary-500 underline hover:text-primary-600 focus:outline-none cursor-pointer"
       >
         {isSignUp ? 'Log In' : 'Sign Up'}
       </button>

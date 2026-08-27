@@ -1,7 +1,8 @@
 // src/pocketbase.svelte.js
 import PocketBase from 'pocketbase';
+import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
-export const pb = new PocketBase('http://127.0.0.1:8090');
+export const pb = new PocketBase(PUBLIC_POCKETBASE_URL);
 
 // Create a globally reactive session object using Runes
 export const session = $state({

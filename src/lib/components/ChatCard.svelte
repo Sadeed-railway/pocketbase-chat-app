@@ -6,7 +6,7 @@
     // Safely derive the URL reactively and fix method casing (.getUrl)
     let url = $derived(
         item?.id && item?.avatar 
-            ? pb.files.getUrl(item, item.avatar) 
+            ? pb.files.getURL(item, item.avatar) 
             : ''
     );
 </script>
