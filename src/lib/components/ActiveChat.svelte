@@ -12,8 +12,6 @@
   let isSending = $state(false);
   let scrollContainer = $state(null);
 
-  const currentUser = session.user;
-
   // 1. SVELTE 5 DERIVED STATE: Group consecutive messages
   let groupedMessages = $derived(
     messages.map((msg, index) => {
@@ -44,44 +42,53 @@
   }
 
   $effect(() => {
-    const activeFriendId = friendId;
-    const currentUserId = session.user?.id;
-    let unsubscribeFn;
+  const activeFriendId = friendId;
+  const currentUserId = session.user?.id;
+  let unsubscribeFn;
+  let cancelled = false;
 
-    async function loadChat() {
-      messages = [];
-      if (!activeFriendId || !currentUserId) return;
+  async function loadChat() {
+    messages = [];
+    if (!activeFriendId || !currentUserId) return;
 
-      const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
+    const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
 
-      messages = await pb.collection('messages').getFullList({
+    try {
+      const result = await pb.collection('messages').getFullList({
         filter: chatFilter,
         sort: 'created',
         expand: 'sender,receiver'
       });
+      if (cancelled) return;
+      messages = result;
       await scrollToBottom();
 
-      unsubscribeFn = await pb.collection('messages').subscribe(
-        '*',
-        async (e) => {
-          if (e.action === 'create') {
-            const newMsg = await pb.collection('messages').getOne(e.record.id, { expand: 'sender,receiver' });
-            if (newMsg.sender === activeFriendId || newMsg.receiver === activeFriendId) {
-              messages.push(newMsg);
-              await scrollToBottom();
-            }
-          }
-        },
-        { filter: chatFilter }
-      );
+      unsubscribeFn = await pb.collection('messages').subscribe('*', async (event) => {
+        if (cancelled) return;
+        if (event.action !== 'create') return;
+        const record = event.record;
+        if (!messages.some((m) => m.id === record.id)) {
+          messages = [...messages, record];
+          await scrollToBottom();
+        }
+      }, { filter: chatFilter });
+
+      if (cancelled) {
+        unsubscribeFn();
+        unsubscribeFn = undefined;
+      }
+    } catch (error) {
+      if (!cancelled) console.error('Failed to load realtime chat:', error);
     }
+  }
 
-    loadChat();
+  loadChat();
 
-    return () => {
-      if (unsubscribeFn) unsubscribeFn();
-    };
-  });
+  return () => {
+    cancelled = true;
+    if (unsubscribeFn) unsubscribeFn();
+  };
+});
 
   async function handleSend(e) {
     e.preventDefault();
@@ -134,7 +141,7 @@
 
     <!-- Loop through our NEW $derived grouped array -->
     {#each groupedMessages as msg (msg.id)}
-      {@const isMe = msg.sender === currentUser?.id}
+      {@const isMe = msg.sender === session.user?.id}
       
       <!-- Apply extra top margin only to the first message in a new group -->
       <div class="flex flex-col {isMe ? 'items-end' : 'items-start'} {msg.isFirstInGroup ? 'mt-4' : 'mt-1'}">
