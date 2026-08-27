@@ -149,7 +149,7 @@
         <div class="flex max-w-[75%] items-end gap-2 {isMe ? 'flex-row-reverse' : 'flex-row'}">
           <div
             class="rounded-2xl px-4 py-2.5 shadow-sm
-            {isMe ? 'variant-filled-primary text-white' : 'variant-soft-surface'}
+            {isMe ? 'bg-[#0A84FF] text-white' : 'bg-[#E5E5EA] text-[#111111] dark:bg-[#e8efec] dark:text-black'}
             {msg.isFirstInGroup && isMe ? 'rounded-tr-md' : ''}
             {msg.isFirstInGroup && !isMe ? 'rounded-tl-md' : ''}"
           >
