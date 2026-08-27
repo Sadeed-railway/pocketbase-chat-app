@@ -75,7 +75,6 @@
     <nav class="flex-1 space-y-1 overflow-y-auto p-4">
       {#each filteredItems as item (item.id)}
         <ChatCard {item} class={activeFriendId == item.id ? 'bg-primary-500/20 text-primary-500' : 'hover:bg-surface-200/50'} />
-        {console.log(item.id, activeFriendId, activeFriendId == item.id)}
       {:else}
         <p class="p-2 text-sm text-surface-400">No items found.</p>
       {/each}
