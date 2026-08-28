@@ -46,7 +46,7 @@
   const currentUserId = session.user?.id;
   
   let cancelled = false;
-  let subscribeTimeout; // Store the timeout ID
+  let subscribeTimeout;
 
   async function loadChat() {
     messages = [];
@@ -55,6 +55,7 @@
     const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
 
     try {
+      // 1. Fetch historical messages
       const result = await pb.collection('messages').getFullList({
         filter: chatFilter,
         sort: 'created',
@@ -65,7 +66,7 @@
       messages = result;
       await scrollToBottom();
 
-      // THE FIX: Wait 150ms before subscribing to avoid race conditions
+      // 2. Subscribe to new messages (Debounced to prevent HMR collisions)
       subscribeTimeout = setTimeout(async () => {
         if (cancelled) return;
         
@@ -80,22 +81,20 @@
             }
           }, { filter: chatFilter });
         } catch (err) {
-          // Detect stale client ID and force a fresh reconnect
-          if (err.status === 400 && err.message.includes('Invalid realtime client')) {
-            console.warn("Realtime connection stale. Forcing reconnect...");
-            pb.realtime.disconnect(); // Kill the broken connection
-            
-            // Wait briefly, then attempt to load the chat again
-            setTimeout(() => { if (!cancelled) loadChat(); }, 1000);
-          } else if (!cancelled && !err.isAbort) {
-            console.error('Failed to load realtime chat:', err);
+          if (!cancelled && !err.isAbort) {
+            console.error('Realtime subscription error:', err);
+            // If the client gets out of sync, kill the broken stream.
+            // DO NOT recursively call loadChat() here. Let the SDK handle it.
+            if (err.status === 400) {
+              pb.realtime.disconnect();
+            }
           }
         }
       }, 150);
 
     } catch (error) {
       if (!cancelled && !error.isAbort) {
-        console.error('Failed to load realtime chat:', error);
+        console.error('Failed to load chat history:', error);
       }
     }
   }
@@ -104,10 +103,7 @@
 
   return () => {
     cancelled = true;
-    // 1. Clear the timeout so we don't accidentally subscribe after unmounting
-    clearTimeout(subscribeTimeout); 
-    
-    // 2. Fire and forget the unsubscribe
+    clearTimeout(subscribeTimeout);
     pb.collection('messages').unsubscribe('*').catch(() => {});
   };
 });
