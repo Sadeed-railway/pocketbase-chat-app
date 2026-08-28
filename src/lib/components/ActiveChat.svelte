@@ -44,7 +44,6 @@
   $effect(() => {
   const activeFriendId = friendId;
   const currentUserId = session.user?.id;
-  let unsubscribeFn;
   let cancelled = false;
 
   async function loadChat() {
@@ -54,39 +53,49 @@
     const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
 
     try {
+      // 1. Fetch initial message history
       const result = await pb.collection('messages').getFullList({
         filter: chatFilter,
         sort: 'created',
         expand: 'sender,receiver'
       });
+      
       if (cancelled) return;
       messages = result;
       await scrollToBottom();
 
-      unsubscribeFn = await pb.collection('messages').subscribe('*', async (event) => {
+      // 2. Subscribe to realtime updates
+      await pb.collection('messages').subscribe('*', async (event) => {
         if (cancelled) return;
         if (event.action !== 'create') return;
+        
         const record = event.record;
+        // Prevent duplicate messages from showing up
         if (!messages.some((m) => m.id === record.id)) {
           messages = [...messages, record];
           await scrollToBottom();
         }
       }, { filter: chatFilter });
 
-      if (cancelled) {
-        unsubscribeFn();
-        unsubscribeFn = undefined;
-      }
     } catch (error) {
-      if (!cancelled) console.error('Failed to load realtime chat:', error);
+      // Ignore abort errors caused by intentional cleanup
+      if (!cancelled && !error.isAbort) {
+        console.error('Failed to load realtime chat:', error);
+      }
     }
   }
 
   loadChat();
 
+  // 3. Svelte Cleanup Function
   return () => {
     cancelled = true;
-    if (unsubscribeFn) unsubscribeFn();
+    
+    // THE FIX: Explicitly tell PocketBase to kill the subscription
+    // Using '*' removes all active listeners for the 'messages' collection
+    pb.collection('messages').unsubscribe('*').catch(err => {
+      console.warn("Error unsubscribing:", err);
+    });
   };
 });
 
