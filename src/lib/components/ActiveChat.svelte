@@ -44,7 +44,9 @@
   $effect(() => {
   const activeFriendId = friendId;
   const currentUserId = session.user?.id;
+  
   let cancelled = false;
+  let subscribeTimeout; // Store the timeout ID
 
   async function loadChat() {
     messages = [];
@@ -53,7 +55,6 @@
     const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
 
     try {
-      // 1. Fetch initial message history
       const result = await pb.collection('messages').getFullList({
         filter: chatFilter,
         sort: 'created',
@@ -64,21 +65,35 @@
       messages = result;
       await scrollToBottom();
 
-      // 2. Subscribe to realtime updates
-      await pb.collection('messages').subscribe('*', async (event) => {
+      // THE FIX: Wait 150ms before subscribing to avoid race conditions
+      subscribeTimeout = setTimeout(async () => {
         if (cancelled) return;
-        if (event.action !== 'create') return;
         
-        const record = event.record;
-        // Prevent duplicate messages from showing up
-        if (!messages.some((m) => m.id === record.id)) {
-          messages = [...messages, record];
-          await scrollToBottom();
+        try {
+          await pb.collection('messages').subscribe('*', async (event) => {
+            if (cancelled || event.action !== 'create') return;
+            
+            const record = event.record;
+            if (!messages.some((m) => m.id === record.id)) {
+              messages = [...messages, record];
+              await scrollToBottom();
+            }
+          }, { filter: chatFilter });
+        } catch (err) {
+          // Detect stale client ID and force a fresh reconnect
+          if (err.status === 400 && err.message.includes('Invalid realtime client')) {
+            console.warn("Realtime connection stale. Forcing reconnect...");
+            pb.realtime.disconnect(); // Kill the broken connection
+            
+            // Wait briefly, then attempt to load the chat again
+            setTimeout(() => { if (!cancelled) loadChat(); }, 1000);
+          } else if (!cancelled && !err.isAbort) {
+            console.error('Failed to load realtime chat:', err);
+          }
         }
-      }, { filter: chatFilter });
+      }, 150);
 
     } catch (error) {
-      // Ignore abort errors caused by intentional cleanup
       if (!cancelled && !error.isAbort) {
         console.error('Failed to load realtime chat:', error);
       }
@@ -87,15 +102,13 @@
 
   loadChat();
 
-  // 3. Svelte Cleanup Function
   return () => {
     cancelled = true;
+    // 1. Clear the timeout so we don't accidentally subscribe after unmounting
+    clearTimeout(subscribeTimeout); 
     
-    // THE FIX: Explicitly tell PocketBase to kill the subscription
-    // Using '*' removes all active listeners for the 'messages' collection
-    pb.collection('messages').unsubscribe('*').catch(err => {
-      console.warn("Error unsubscribing:", err);
-    });
+    // 2. Fire and forget the unsubscribe
+    pb.collection('messages').unsubscribe('*').catch(() => {});
   };
 });
 

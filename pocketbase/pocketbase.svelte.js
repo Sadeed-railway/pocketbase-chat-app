@@ -1,21 +1,30 @@
-// src/pocketbase.svelte.js
 import PocketBase from 'pocketbase';
 import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
-export const pb = new PocketBase(PUBLIC_POCKETBASE_URL);
+// Only create a new instance if one doesn't already exist on the window in dev mode
+const createPocketBase = () => {
+    if (import.meta.env.DEV && typeof window !== 'undefined' && window.__pb__) {
+        return window.__pb__;
+    }
+    const instance = new PocketBase(PUBLIC_POCKETBASE_URL);
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+        window.__pb__ = instance;
+    }
+    return instance;
+};
 
-// Create a globally reactive session object using Runes
+export const pb = createPocketBase();
+
 export const session = $state({
     isValid: pb.authStore.isValid,
     user: pb.authStore.model
 });
 
-// Listen to PocketBase's internal auth changes and update our rune
 pb.authStore.onChange((token, model) => {
     session.isValid = pb.authStore.isValid;
     session.user = model;
 });
 
 export function logout() {
-    pb.authStore.clear(); // This will automatically trigger the onChange listener above
+    pb.authStore.clear();
 }
