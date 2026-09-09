@@ -1,9 +1,9 @@
-// src/routes/+page.js
+// Client-side route load: bounce signed-in users straight to /chats
 import { redirect } from '@sveltejs/kit';
-import { session } from '$pb/pocketbase.svelte.js';
+import { fbsession } from '$fb/session.svelte.js';
 
 export function load() {
-  if (session.isValid) {
-    redirect(303, '/chats');
-  }
+    if (fbsession.ready && fbsession.user && fbsession.profile?.username) {
+        redirect(303, '/chats');
+    }
 }

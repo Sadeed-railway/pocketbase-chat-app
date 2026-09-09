@@ -1,11 +1,27 @@
 <script>
-  import { tick } from 'svelte';
-  import { pb, session } from '$pb/pocketbase.svelte.js';
-  import { getActiveChatState } from '$lib/stores/chat.svelte.js';
+  import { tick, onMount } from 'svelte';
+    import { getActiveChatState } from '$lib/stores/chat.svelte.js';
+  import { onAuthStateChanged } from 'firebase/auth';
+  import { auth, db } from '$fb/firebase';
+  import { fbsession } from '$fb/session.svelte.js';
+  import { collection, addDoc, query, where, onSnapshot, getDoc, doc, serverTimestamp } from 'firebase/firestore';
 
   const activeChat = getActiveChatState();
   let friend = $derived(activeChat.friend);
   let friendId = $derived(friend?.id);
+
+  let fbUser = $state(null);
+  let currentUserId = $derived(fbsession.user?.uid ?? fbUser?.uid);
+
+  // Cache of Firestore uid -> username for message author labels
+  let usernameCache = $state({});
+
+  onMount(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      fbUser = currentUser;
+    });
+    return () => unsubscribe();
+  });
 
   let messages = $state([]);
   let inputText = $state('');
@@ -43,85 +59,100 @@
 
   $effect(() => {
   const activeFriendId = friendId;
-  const currentUserId = session.user?.id;
-  
+  const me = currentUserId;
+
   let cancelled = false;
   let subscribeTimeout;
+  let unsubFirestore = null;
 
-  async function loadChat() {
+  // ---------- Firestore path (Firebase-authenticated users) ----------
+  function loadChatFirestore() {
     messages = [];
-    if (!activeFriendId || !currentUserId) return;
+    if (!activeFriendId || !me) return;
 
-    const chatFilter = `(sender = "${currentUserId}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${currentUserId}")`;
+    // Deterministic chat id so both participants hit the same thread
+    const chatId = [me, activeFriendId].sort().join('_');
 
-    try {
-      // 1. Fetch historical messages
-      const result = await pb.collection('messages').getFullList({
-        filter: chatFilter,
-        sort: 'created',
-        expand: 'sender,receiver'
-      });
-      
-      if (cancelled) return;
-      messages = result;
-      await scrollToBottom();
+    // Sort client-side to avoid needing a composite index
+    const q = query(collection(db, 'messages'), where('chatId', '==', chatId));
 
-      // 2. Subscribe to new messages (Debounced to prevent HMR collisions)
-      subscribeTimeout = setTimeout(async () => {
+    unsubFirestore = onSnapshot(
+      q,
+      async (snap) => {
         if (cancelled) return;
-        
-        try {
-          await pb.collection('messages').subscribe('*', async (event) => {
-            if (cancelled || event.action !== 'create') return;
-            
-            const record = event.record;
-            if (!messages.some((m) => m.id === record.id)) {
-              messages = [...messages, record];
-              await scrollToBottom();
-            }
-          }, { filter: chatFilter });
-        } catch (err) {
-          if (!cancelled && !err.isAbort) {
-            console.error('Realtime subscription error:', err);
-            // If the client gets out of sync, kill the broken stream.
-            // DO NOT recursively call loadChat() here. Let the SDK handle it.
-            if (err.status === 400) {
-              pb.realtime.disconnect();
-            }
-          }
-        }
-      }, 150);
 
-    } catch (error) {
-      if (!cancelled && !error.isAbort) {
-        console.error('Failed to load chat history:', error);
+        const docs = snap.docs
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              sender: data.sender,
+              content: data.content,
+              created: data.createdAt?.toDate?.()?.toISOString() ?? '',
+              senderUsername: data.senderUsername
+            };
+          })
+          .sort((a, b) => new Date(a.created) - new Date(b.created));
+
+        messages = docs;
+
+        // Resolve any unknown sender usernames for the group labels
+        const unknownSenders = [...new Set(docs.map((m) => m.sender))].filter(
+          (uid) => uid && usernameCache[uid] === undefined
+        );
+        if (unknownSenders.length > 0) {
+          const resolved = {};
+          await Promise.all(
+            unknownSenders.map(async (uid) => {
+              try {
+                const userSnap = await getDoc(doc(db, 'users', uid));
+                resolved[uid] = userSnap.exists() ? userSnap.data().username : null;
+              } catch {
+                resolved[uid] = null;
+              }
+            })
+          );
+          if (!cancelled) usernameCache = { ...usernameCache, ...resolved };
+        }
+
+        await scrollToBottom();
+      },
+      (err) => {
+        if (!cancelled) console.error('Firestore chat listener error:', err);
       }
-    }
+    );
   }
 
-  loadChat();
+  if (fbUser) {
+    loadChatFirestore();
+  }
 
   return () => {
     cancelled = true;
     clearTimeout(subscribeTimeout);
-    pb.collection('messages').unsubscribe('*').catch(() => {});
+    if (unsubFirestore) unsubFirestore();
   };
 });
 
   async function handleSend(e) {
     e.preventDefault();
     const textToSend = inputText.trim();
-    if (!textToSend || !friendId || !session.user?.id || isSending) return;
+    if (!textToSend || !friendId || !currentUserId || isSending) return;
 
     isSending = true;
     inputText = '';
 
     try {
-      await pb.collection('messages').create({
-        content: textToSend,
-        sender: session.user.id,
-        receiver: friendId
-      });
+      if (fbUser) {
+        await addDoc(collection(db, 'messages'), {
+          chatId: [currentUserId, friendId].sort().join('_'),
+          sender: currentUserId,
+          senderUsername: usernameCache[currentUserId] ?? fbUser.displayName ?? null,
+          receiver: friendId,
+          content: textToSend,
+          createdAt: serverTimestamp()
+        });
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
@@ -159,7 +190,7 @@
 
     <!-- Loop through our NEW $derived grouped array -->
     {#each groupedMessages as msg (msg.id)}
-      {@const isMe = msg.sender === session.user?.id}
+      {@const isMe = msg.sender === currentUserId}
       
       <!-- Apply extra top margin only to the first message in a new group -->
       <div class="flex flex-col {isMe ? 'items-end' : 'items-start'} {msg.isFirstInGroup ? 'mt-4' : 'mt-1'}">
@@ -167,7 +198,7 @@
         <!-- Only show timestamp/name headers on the first message of the group -->
         {#if msg.isFirstInGroup}
           <span class="px-1 pb-1 text-[11px] text-surface-400 font-medium">
-            {isMe ? 'You' : msg.expand?.sender?.username} • {formatTime(msg.created)}
+            {isMe ? 'You' : msg.senderUsername ?? usernameCache[msg.sender] ?? 'Unknown'} • {formatTime(msg.created)}
           </span>
         {/if}
 

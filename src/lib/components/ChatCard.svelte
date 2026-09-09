@@ -1,14 +1,9 @@
 <script>
     import { Avatar } from '@skeletonlabs/skeleton-svelte';
-    import { pb } from '$pb/pocketbase.svelte.js';
-    let { item, class: className = '', isActive = false, onSelect = () => {} } = $props();
+        let { item, class: className = '', isActive = false, onSelect = () => {} } = $props();
 
-    // Safely derive the URL reactively and fix method casing (.getUrl)
-    let url = $derived(
-        item?.id && item?.avatar 
-            ? pb.files.getURL(item, item.avatar) 
-            : ''
-    );
+    // Avatars are full URLs (Firebase photoURL) or empty
+    let url = $derived(item?.avatar?.startsWith('http') ? item.avatar : '');
 </script>
 
 <button
