@@ -1,15 +1,32 @@
 <script>
+  import { onMount } from 'svelte';
   import SideBar from '$lib/components/SideBar.svelte';
   import { pb, session } from '$pb/pocketbase.svelte.js';
+  import { onAuthStateChanged } from 'firebase/auth';
+  import { auth } from '$fb/firebase';
   import { goto } from '$app/navigation';
 	import ActiveChat from '$lib/components/ActiveChat.svelte';
 
   let friendsList = $state([]);
 
+  // Track Firebase auth so PocketBase-only guards don't bounce
+  // Firebase-authenticated users back to /login (infinite loop)
+  let fbUser = $state(null);
+  let fbAuthReady = $state(false);
+
+  onMount(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      fbUser = currentUser;
+      fbAuthReady = true;
+    });
+    return () => unsubscribe();
+  });
+
   $effect(() => {
       if (session.isValid) {
         loadFriends();
-      } else {
+      } else if (fbAuthReady && !fbUser) {
+        // Only redirect when there is no Firebase session either
         goto('/login', { replaceState: true });
       }
     });
