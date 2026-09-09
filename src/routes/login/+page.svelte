@@ -130,7 +130,7 @@
                 type="button"
                 onclick={loginWithGoogle}
                 disabled={isGoogleLoading}
-                class="inline-flex w-full items-center justify-center gap-3 rounded-lg border border-surface-500/20 bg-surface-100-800-token px-4 py-2.5 text-sm font-medium text-surface-900-50-token shadow-sm hover:bg-surface-50-900-token focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors disabled:opacity-50"
+                class="inline-flex w-full items-center justify-center cursor-pointer gap-3 rounded-lg border border-surface-500/20 bg-surface-100-800-token px-4 py-2.5 text-sm font-medium text-surface-900-50-token shadow-sm hover:bg-surface-50-900-token focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors disabled:opacity-50 hover:opacity-60"
             >
                 <svg class="h-5 w-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
