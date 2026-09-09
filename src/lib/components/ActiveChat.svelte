@@ -1,18 +1,17 @@
 <script>
   import { tick, onMount } from 'svelte';
-  import { pb, session } from '$pb/pocketbase.svelte.js';
-  import { getActiveChatState } from '$lib/stores/chat.svelte.js';
+    import { getActiveChatState } from '$lib/stores/chat.svelte.js';
   import { onAuthStateChanged } from 'firebase/auth';
   import { auth, db } from '$fb/firebase';
+  import { fbsession } from '$fb/session.svelte.js';
   import { collection, addDoc, query, where, onSnapshot, getDoc, doc, serverTimestamp } from 'firebase/firestore';
 
   const activeChat = getActiveChatState();
   let friend = $derived(activeChat.friend);
   let friendId = $derived(friend?.id);
 
-  // Firebase user id is used whenever there's no PocketBase session
   let fbUser = $state(null);
-  let currentUserId = $derived(session.user?.id ?? fbUser?.uid);
+  let currentUserId = $derived(fbsession.user?.uid ?? fbUser?.uid);
 
   // Cache of Firestore uid -> username for message author labels
   let usernameCache = $state({});
@@ -65,56 +64,6 @@
   let cancelled = false;
   let subscribeTimeout;
   let unsubFirestore = null;
-
-  // ---------- PocketBase path (unchanged behavior) ----------
-  async function loadChatPb() {
-    messages = [];
-    if (!activeFriendId || !me) return;
-
-    const chatFilter = `(sender = "${me}" && receiver = "${activeFriendId}") || (sender = "${activeFriendId}" && receiver = "${me}")`;
-
-    try {
-      // 1. Fetch historical messages
-      const result = await pb.collection('messages').getFullList({
-        filter: chatFilter,
-        sort: 'created',
-        expand: 'sender,receiver'
-      });
-
-      if (cancelled) return;
-      messages = result;
-      await scrollToBottom();
-
-      // 2. Subscribe to new messages (Debounced to prevent HMR collisions)
-      subscribeTimeout = setTimeout(async () => {
-        if (cancelled) return;
-
-        try {
-          await pb.collection('messages').subscribe('*', async (event) => {
-            if (cancelled || event.action !== 'create') return;
-
-            const record = event.record;
-            if (!messages.some((m) => m.id === record.id)) {
-              messages = [...messages, record];
-              await scrollToBottom();
-            }
-          }, { filter: chatFilter });
-        } catch (err) {
-          if (!cancelled && !err.isAbort) {
-            console.error('Realtime subscription error:', err);
-            if (err.status === 400) {
-              pb.realtime.disconnect();
-            }
-          }
-        }
-      }, 150);
-
-    } catch (error) {
-      if (!cancelled && !error.isAbort) {
-        console.error('Failed to load chat history:', error);
-      }
-    }
-  }
 
   // ---------- Firestore path (Firebase-authenticated users) ----------
   function loadChatFirestore() {
@@ -174,9 +123,7 @@
     );
   }
 
-  if (session.isValid) {
-    loadChatPb();
-  } else if (fbUser) {
+  if (fbUser) {
     loadChatFirestore();
   }
 
@@ -184,7 +131,6 @@
     cancelled = true;
     clearTimeout(subscribeTimeout);
     if (unsubFirestore) unsubFirestore();
-    pb.collection('messages').unsubscribe('*').catch(() => {});
   };
 });
 
@@ -197,13 +143,7 @@
     inputText = '';
 
     try {
-      if (session.isValid) {
-        await pb.collection('messages').create({
-          content: textToSend,
-          sender: session.user.id,
-          receiver: friendId
-        });
-      } else if (fbUser) {
+      if (fbUser) {
         await addDoc(collection(db, 'messages'), {
           chatId: [currentUserId, friendId].sort().join('_'),
           sender: currentUserId,

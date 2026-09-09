@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { fade, fly } from 'svelte/transition';
-  import { session } from '$pb/pocketbase.svelte.js';
+  import { fbsession } from '$fb/session.svelte.js';
 
   let visible = $state(true);
   let targetRoute = $state('/login');
@@ -11,7 +11,7 @@
   onMount(async () => {
     const delayPromise = new Promise((res) => setTimeout(res, 1200));
 
-    if (session.isValid) {
+    if (fbsession.ready && fbsession.user && fbsession.profile?.username) {
       targetRoute = '/chats';
     } else {
       targetRoute = '/login';

@@ -2,7 +2,7 @@
     import MenuIcon from '@lucide/svelte/icons/menu';
     import { AppBar, Avatar, Menu, Portal } from '@skeletonlabs/skeleton-svelte';
     import { getSidebarState } from '$lib/stores/ui.svelte.js';
-    import { pb, session, logout } from '$pb/pocketbase.svelte.js';
+    import { fbsession } from '$fb/session.svelte.js';
     import { signOut } from 'firebase/auth';
     import { auth } from '$fb/firebase';
     import { onMount } from 'svelte';
@@ -14,21 +14,16 @@
         mounted = true;
     });
 
-    // Sign out from both auth sources so the user fully logs out
+    // Sign out of Firebase
     async function handleLogout() {
         try {
             await signOut(auth);
         } catch (err) {
             console.error('Firebase sign-out error:', err);
         }
-        logout();
     }
 
-    let url = $derived(
-        session.user?.id && session.user?.avatar
-            ? pb.files.getURL(session.user, session.user.avatar)
-            : ''
-    );
+    let url = $derived(fbsession.user?.photoURL ?? '');
 
     const sidebar = getSidebarState();
 </script>
@@ -51,7 +46,7 @@
                         {#if mounted && url}
                             <Avatar.Image src={url} alt="base" class="size-10" />
                         {/if}
-                        <Avatar.Fallback>{session.user?.username?.charAt(0).toUpperCase() ?? 'U'}</Avatar.Fallback>
+                        <Avatar.Fallback>{fbsession.user?.displayName?.charAt(0).toUpperCase() ?? 'U'}</Avatar.Fallback>
                     </Avatar>
                 </Menu.Trigger>
                 <Portal>

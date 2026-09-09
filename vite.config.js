@@ -14,7 +14,6 @@ export default defineConfig({
 			},
 			adapter: adapter(),
 			alias: {
-				$pb: './pocketbase/',
 				$fb: './firebase/'
 			}
 		}),
