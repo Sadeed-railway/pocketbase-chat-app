@@ -4,10 +4,13 @@
     let { item, class: className = '', isActive = false, onSelect = () => {} } = $props();
 
     // Safely derive the URL reactively and fix method casing (.getUrl)
+    // Firestore avatars are full URLs; PocketBase avatars are file tokens
     let url = $derived(
-        item?.id && item?.avatar 
-            ? pb.files.getURL(item, item.avatar) 
-            : ''
+        item?.avatar?.startsWith('http')
+            ? item.avatar
+            : item?.id && item?.avatar
+                ? pb.files.getURL(item, item.avatar)
+                : ''
     );
 </script>
 

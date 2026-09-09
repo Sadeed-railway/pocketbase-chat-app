@@ -3,13 +3,26 @@
     import { AppBar, Avatar, Menu, Portal } from '@skeletonlabs/skeleton-svelte';
     import { getSidebarState } from '$lib/stores/ui.svelte.js';
     import { pb, session, logout } from '$pb/pocketbase.svelte.js';
+    import { signOut } from 'firebase/auth';
+    import { auth } from '$fb/firebase';
     import { onMount } from 'svelte';
+    import { LogOut } from '@lucide/svelte';
 
     let mounted = $state(false);
 
     onMount(() => {
         mounted = true;
     });
+
+    // Sign out from both auth sources so the user fully logs out
+    async function handleLogout() {
+        try {
+            await signOut(auth);
+        } catch (err) {
+            console.error('Firebase sign-out error:', err);
+        }
+        logout();
+    }
 
     let url = $derived(
         session.user?.id && session.user?.avatar
@@ -29,7 +42,10 @@
             <p class="text-2xl">Chats</p>
         </AppBar.Headline>
         <AppBar.Trail>
-            <Menu>
+        <button type="button" class="btn-icon btn-icon-lg hover:preset-tonal" onclick={handleLogout}>
+            <LogOut />
+        </button>
+            <!-- <Menu>
                 <Menu.Trigger class="rounded-lg p-1 hover:preset-tonal cursor-pointer">
                     <Avatar class="size-10">
                         {#if mounted && url}
@@ -45,7 +61,7 @@
                         </Menu.Content>
                     </Menu.Positioner>
                 </Portal>
-            </Menu>
+            </Menu> -->
         </AppBar.Trail>
     </AppBar.Toolbar>
 </AppBar>
