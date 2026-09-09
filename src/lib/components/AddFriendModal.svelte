@@ -73,6 +73,34 @@
 
       await addDoc(collection(db, 'friend_requests'), {
         sender: currentUid,
+        receiver: user.id,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+      message = `Friend request sent to @${user.username}!`;
+    } catch (err) {
+      console.error('Friend request error:', err);
+      message = 'Failed to send friend request. Please try again.';
+    } finally {
+      sendingTo = null;
+    }
+  }
+
+  // Accept flips the request to accepted (the friend then appears in the sidebar);
+  // Decline removes the request entirely.
+  async function respondToRequest(request, action) {
+    try {
+      if (action === 'accept') {
+        await updateDoc(doc(db, 'friend_requests', request.id), { status: 'accepted' });
+      } else {
+        await deleteDoc(doc(db, 'friend_requests', request.id));
+      }
+      onFriendsChanged?.();
+    } catch (err) {
+      console.error('Friend request response error:', err);
+    }
+  }
+</script>
 
 {#if open}
   <!-- Backdrop -->
@@ -190,31 +218,3 @@
   </div>
 {/if}
 
-        receiver: user.id,
-        status: 'pending',
-        createdAt: serverTimestamp()
-      });
-      message = `Friend request sent to @${user.username}!`;
-    } catch (err) {
-      console.error('Friend request error:', err);
-      message = 'Failed to send friend request. Please try again.';
-    } finally {
-      sendingTo = null;
-    }
-  }
-
-  // Accept flips the request to accepted (the friend then appears in the sidebar);
-  // Decline removes the request entirely.
-  async function respondToRequest(request, action) {
-    try {
-      if (action === 'accept') {
-        await updateDoc(doc(db, 'friend_requests', request.id), { status: 'accepted' });
-      } else {
-        await deleteDoc(doc(db, 'friend_requests', request.id));
-      }
-      onFriendsChanged?.();
-    } catch (err) {
-      console.error('Friend request response error:', err);
-    }
-  }
-</script>
